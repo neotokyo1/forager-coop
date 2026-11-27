@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/melogo5/forager-coop/releases/latest"><img src="https://img.shields.io/github/v/release/melogo5/forager-coop?include_prereleases&label=download" alt="Скачать"></a>
+  <a href="https://github.com/neotokyo1/forager-coop/releases/latest"><img src="https://img.shields.io/github/v/release/neotokyo1/forager-coop?include_prereleases&label=download" alt="Скачать"></a>
   <a href="https://discord.gg/BjsubWefm4"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="Лицензия MIT"></a>
 </p>
@@ -53,7 +53,7 @@
 
 ## Установка
 
-1. Скачайте `version.dll` из [последнего релиза](https://github.com/melogo5/forager-coop/releases/latest).
+1. Скачайте `version.dll` из [последнего релиза](https://github.com/neotokyo1/forager-coop/releases/latest).
 2. Положите в папку игры, рядом с `Forager.exe`
    (Steam → Forager → Управление → Просмотреть локальные файлы).
 3. Это нужно сделать каждому игроку.

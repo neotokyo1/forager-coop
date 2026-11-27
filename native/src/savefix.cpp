@@ -12,6 +12,7 @@
 
 #include "MinHook.h"
 #include "files.h"
+#include "trade.h"
 #include "log.h"
 #include "mutant.h"
 #include "yyc.h"
@@ -342,6 +343,10 @@ void RepairSlot(yyc::CInstance* self) {
 
 yyc::RValue* __cdecl LoadGameHook(yyc::CInstance* self, yyc::CInstance* other, yyc::RValue* result, int argc,
                                   yyc::RValue** args) {
+    if (!trade::BeforeLoad()) {
+        Log("trade: checkpoint recovery failed; withholding load");
+        return result;
+    }
     if (!Mutant("savefix")) {
         __try {
             RepairSlot(self);

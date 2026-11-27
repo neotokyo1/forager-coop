@@ -1,6 +1,7 @@
 // Coop session: started from the Coop menu (or -coop launch options for testing).
 // Each side sends its player's position/sprite ~20 times a second; the other side shows it as a puppet.
 #include "session.h"
+#include "trade.h"
 
 #include <windows.h>
 #include <shellapi.h>
@@ -25,6 +26,7 @@
 #include "net.h"
 #include "banks.h"
 #include "character.h"
+#include "chat.h"
 #include "chests.h"
 #include "clock.h"
 #include "coins.h"
@@ -66,7 +68,7 @@ namespace coop {
 
 namespace {
 
-constexpr uint32_t kProtocolVersion = 22;  // 22: bonk and friendly fire (114), dancing in the state; 21: the Void together (places, seed, level state: 112, 113); 20: world puzzles, ice bolts, signs (105, 108-111), gem sockets no longer shared; 19: the player's aim (mouse) in its state; 18: floor/road tiles, structure variants, everyone's familiars; 17: puzzle pieces by the host's
+constexpr uint32_t kProtocolVersion = 24;  // 24: console chat (119, 120); 23: two-party trades (115-118); 22: bonk and friendly fire (114), dancing in the state; 21: the Void together (places, seed, level state: 112, 113); 20: world puzzles, ice bolts, signs (105, 108-111), gem sockets no longer shared; 19: the player's aim (mouse) in its state; 18: floor/road tiles, structure variants, everyone's familiars; 17: puzzle pieces by the host's
                                            // id and spot; 16: item unlocks; 15: a guest greets first (net.cpp); 14: the
                                            // tool swing
 constexpr uint32_t kYYVarImageBlend = 0x01AD8768;  // decompiled/code/yyvar_map.tsv
@@ -124,6 +126,7 @@ struct PeerStateMsg {
 using session::Role;
 
 Role g_role = Role::kNone;
+bool g_tradeRecovery = false;
 bool g_playedWorld = false;  // this session has been in a world (back in the menu = the session is over)
 unsigned g_steps = 0;
 unsigned g_offlineSteps = 0;
@@ -142,6 +145,7 @@ std::string g_myName;         // shown over our character on the other players' 
 std::vector<net::PeerId> g_peers;  // linked at the last step
 bool g_wasInWorld = true;
 int g_lastSharedRoom = -1;  // the room the session was last played in (-1: none yet)
+std::map<net::PeerId, uint32_t> g_versions;
 std::map<net::PeerId, PlayerStateMsg> g_remotes;  // the other players' last state, shown as puppets
 puppet::Swing g_swing{};  // the local player's swing to send next (KeepSwing)
 
@@ -401,8 +405,17 @@ void HandleMessages(yyc::CInstance* localPlayer) {
             }
             continue;
         }
+        // A chat frame can arrive between the independent chat tick and this drain.
+        if (message.type == chat::kSubmit || message.type == chat::kLine) {
+            chat::Handle(message, g_role == Role::kHost);
+            continue;
+        }
         if (IsStaleClaim(message) || FromGuestButHostOnly(message)) continue;
         if (g_role == Role::kHost && message.from != net::kHostPeer) Relay(message);
+        if (trade::Handle(message, localPlayer)) {
+            if (g_leaving) return;
+            continue;
+        }
         if (sync::Handle(message, localPlayer) || mobs::Handle(message, localPlayer) ||
             storage::Handle(message, localPlayer) || land::Handle(message, localPlayer) ||
             clock::Handle(message, localPlayer) ||
@@ -434,6 +447,7 @@ void HandleMessages(yyc::CInstance* localPlayer) {
             HelloMsg hello{};
             memcpy(&hello, message.payload.data(), sizeof(hello));
             Log("session: player %u has protocol %u (ours %u)", message.from, hello.version, OurProtocol());
+            g_versions[message.from] = hello.version;
             if (hello.version != OurProtocol()) WarnVersion(hello.version);
         } else if (message.type == kPlayerState && message.payload.size() == sizeof(PlayerStateMsg)) {
             PlayerStateMsg state{};
@@ -445,6 +459,7 @@ void HandleMessages(yyc::CInstance* localPlayer) {
             memcpy(&peer, message.payload.data(), sizeof(peer));
             g_remotes[peer.player] = peer.state;
         } else if (message.type == kPeerGone && message.payload.size() == 1 && g_role == Role::kGuest) {
+            trade::PeerLeft(message.payload[0]);
             g_remotes.erase(message.payload[0]);
             puppet::Destroy(localPlayer, message.payload[0]);
             familiars::OnPeerLeft(localPlayer, message.payload[0], false);
@@ -480,6 +495,8 @@ void TrackPeers(yyc::CInstance* localPlayer, const std::vector<net::PeerId>& pee
     for (const net::PeerId peer : g_peers) {
         if (known(peers, peer)) continue;
         Log("session: player %u left", peer);
+        trade::PeerLeft(peer);
+        g_versions.erase(peer);
         g_remotes.erase(peer);
         puppet::Destroy(localPlayer, peer);
         familiars::OnPeerLeft(localPlayer, peer, g_role == Role::kHost);
@@ -600,12 +617,11 @@ bool IsMenuAware(yyc::CInstance* self, int object) {
 
 yyc::RValue* __cdecl IsMenuOpenHook(yyc::CInstance* self, yyc::CInstance* other, yyc::RValue* result, int argc,
                                     yyc::RValue** args) {
-    if (g_role == Role::kNone || self == nullptr ||
-        IsMenuAware(self, static_cast<int>(yyc::GetBuiltinReal(self, yyc::va::YYVar_object_index)))) {
-        return g_origIsMenuOpen(self, other, result, argc, args);
-    }
+    if (g_role == Role::kNone || self == nullptr) return g_origIsMenuOpen(self, other, result, argc, args);
+    const bool menuAware = IsMenuAware(self, static_cast<int>(yyc::GetBuiltinReal(self, yyc::va::YYVar_object_index)));
+    if (menuAware && !trade::Open()) return g_origIsMenuOpen(self, other, result, argc, args);
     yyc::Free(result);
-    *result = yyc::Real(0);
+    *result = yyc::Real(menuAware ? 1 : 0);
     return result;
 }
 
@@ -685,6 +701,7 @@ void Tick(yyc::CInstance* localPlayer) {
     const bool connected = !peers.empty();
     if (g_role == Role::kHost && g_steps % kAnnounceEverySteps == 0) Announce(peers.size());
     TrackPeers(localPlayer, peers);
+    chat::Tick(localPlayer, connected);
     if (g_role == Role::kHost) {
         world::HostTick();
         familiars::HostTick(localPlayer);
@@ -778,6 +795,7 @@ void Tick(yyc::CInstance* localPlayer) {
     fishing::Tick(localPlayer);
     skills::Tick(localPlayer, g_role == Role::kHost);
     HandleMessages(localPlayer);
+    if (g_leaving) return;
     KeepSwing(localPlayer);
     if (g_steps % kSendEverySteps == 0) {
         const PlayerStateMsg state = CaptureState(localPlayer);
@@ -877,6 +895,9 @@ void Leave() {
     net::SetReceiveHandler(nullptr);
     net::SetConnectHandler(nullptr);
     steam::LeaveLobby();
+    chat::Reset();
+    trade::Reset();
+    g_versions.clear();
     skilltab::Reset();
     puppet::HoldLocalPlayer(false);
     g_inviteHinted = false;
@@ -930,6 +951,32 @@ std::string TakeNotice() {
     return notice;
 }
 
+std::vector<std::pair<uint8_t, std::string>> TradePartners() {
+    std::vector<std::pair<uint8_t, std::string>> peers;
+    if (!g_tradeRecovery || g_leaving || g_byeSaveSteps || OurProtocol() != kProtocolVersion) return peers;
+    for (const auto& [peer, state] : g_remotes) {
+        if (g_role == Role::kHost && (!character::Introduced(peer) || !IsLinked(peer))) continue;
+        const auto version = g_versions.find(g_role == Role::kHost ? peer : net::kHostPeer);
+        if (version == g_versions.end() || version->second != kProtocolVersion) continue;
+        peers.emplace_back(peer, std::string(state.name, strnlen(state.name, sizeof(state.name))));
+    }
+    return peers;
+}
+
+bool GameMenuOpen(yyc::CInstance* player) {
+    if (!g_origIsMenuOpen) return true;
+    yyc::RValue result{};
+    g_origIsMenuOpen(player, player, &result, 0, nullptr);
+    bool open = yyc::ToReal(result) != 0;
+    yyc::Free(&result);
+    return open;
+}
+
+void RejoinAfterTrade(yyc::CInstance* player) {
+    net::Stop();
+    GuestGoToMenu(player, "trade checkpoint is on the host; rejoin");
+}
+
 Role CurrentRole() { return g_role; }
 bool IsConnected() { return net::IsConnected(); }
 
@@ -944,7 +991,7 @@ bool SessionInstall() {
         return false;
     }
     if (!world::InstallHooks([] { return g_role == Role::kGuest; })) return false;
-    savefix::InstallHooks();  // a stopgap: never in the way of the rest
+    g_tradeRecovery = savefix::InstallHooks();  // trading needs its before-load recovery path
     if (!skilltab::InstallHooks([] { return g_role != Role::kNone; })) return false;
     interiors::InstallHooks([] { return g_role != Role::kNone; });  // work in progress: never in the way of the rest
     if (!fishing::InstallHooks([] { return g_role != Role::kNone; })) return false;

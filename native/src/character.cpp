@@ -15,6 +15,8 @@
 
 #include "MinHook.h"
 #include "files.h"
+#include "trade.h"
+#include "trade_capture.h"
 #include "log.h"
 #include "puppet.h"
 #include "world.h"
@@ -123,7 +125,10 @@ std::string FreeName(const std::string& name, net::PeerId peer) {
         return false;
     };
     std::string candidate = name;
-    for (int n = 2; taken(candidate); ++n) candidate = name + "_" + std::to_string(n);
+    for (int n = 2; taken(candidate); ++n) {
+        const std::string suffix = "_" + std::to_string(n);
+        candidate = name.substr(0, kMaxName-suffix.size()) + suffix;
+    }
     return candidate;
 }
 
@@ -261,6 +266,8 @@ bool InstallHooks(bool (*isGuest)()) {
     return status == MH_OK;
 }
 
+bool Introduced(net::PeerId peer) { return g_guestNames.count(peer) != 0; }
+
 std::string HostGuestName(net::PeerId peer) {
     const auto found = g_guestNames.find(peer);
     return found != g_guestNames.end() ? found->second : "guest";
@@ -315,7 +322,10 @@ bool GuestHandleReceive(const net::Message& message) {
 bool GuestReady() { return g_answered; }
 
 void GuestUploadNow() {
-    const std::vector<uint8_t> data = ReadFile(fs::path(world::GuestSlotPath()) / L"Data.cin");
+    // After a trade, a disk read can still observe an older asynchronous save.
+    const auto* latest = trade::LatestGuestSave();
+    const auto disk = latest ? std::vector<uint8_t>{} : ReadFile(fs::path(world::GuestSlotPath()) / L"Data.cin");
+    const auto& data = latest ? *latest : disk;
     if (data.empty()) {
         Log("character: save produced no Data.cin");
     } else if (!net::Send(kCharacterSave, data.data(), data.size())) {
@@ -463,6 +473,7 @@ bool HostHandle(const net::Message& message, yyc::CInstance* localPlayer, bool* 
         return true;
     }
     if (message.type == kGuestHello) {
+        if (Introduced(message.from)) return true;
         const std::string asked = SafeName(std::string(message.payload.begin(), message.payload.end()));
         const std::string name = FreeName(asked, message.from);
         if (name != asked) {
@@ -484,7 +495,11 @@ bool HostHandle(const net::Message& message, yyc::CInstance* localPlayer, bool* 
 
 bool HostTakeSave(const net::Message& message) {
     if (message.type != kCharacterSave) return false;
+    if (!Introduced(message.from) || !trade::AcceptCharacterSave(message.from)) return true;
     const std::string name = HostGuestName(message.from);
+    for (const net::PeerId linked : net::Peers()) {
+        if (linked != message.from && Introduced(linked) && FileKey(HostGuestName(linked)) == FileKey(name)) return true;
+    }
     const std::vector<uint8_t>& data = message.payload;
     // An empty or foreign file would replace the stored character and make this guest a new one next time.
     if (data.size() < 4 || memcmp(data.data(), "cndr", 4) != 0) {

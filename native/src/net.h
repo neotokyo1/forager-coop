@@ -51,6 +51,8 @@ void SendExcept(PeerId except, uint8_t type, const void* payload, size_t size);
 size_t Backlog(PeerId peer);
 // Moves every message received since the last call into `out`.
 void Drain(std::vector<Message>& out);
+// The short trade commit barrier leaves ordinary gameplay messages in wire order.
+std::vector<Message> DrainType(uint8_t type);
 
 // Called on the receive thread for every message before it is queued; return true to consume it.
 // For work that must not wait for the game loop (e.g. writing files while the game sits in a menu).

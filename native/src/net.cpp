@@ -626,6 +626,21 @@ size_t Backlog(PeerId peer) {
 void SetReceiveHandler(ReceiveHandler handler) { g_handler = handler; }
 void SetConnectHandler(ConnectHandler handler) { g_onConnect = handler; }
 
+std::vector<Message> DrainType(uint8_t type) {
+    std::vector<Message> result;
+    std::lock_guard<std::mutex> guard(g_lock);
+    auto keep = g_inbox.begin();
+    for (auto it = g_inbox.begin(); it != g_inbox.end(); ++it) {
+        if (it->type == type) result.push_back(std::move(*it));
+        else {
+            if (keep != it) *keep = std::move(*it);
+            ++keep;
+        }
+    }
+    g_inbox.erase(keep, g_inbox.end());
+    return result;
+}
+
 void Drain(std::vector<Message>& out) {
     std::lock_guard<std::mutex> guard(g_lock);
     for (auto& message : g_inbox) out.push_back(std::move(message));

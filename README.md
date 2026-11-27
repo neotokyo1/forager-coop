@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/melogo5/forager-coop/releases/latest"><img src="https://img.shields.io/github/v/release/melogo5/forager-coop?include_prereleases&label=download" alt="Download"></a>
+  <a href="https://github.com/neotokyo1/forager-coop/releases/latest"><img src="https://img.shields.io/github/v/release/neotokyo1/forager-coop?include_prereleases&label=download" alt="Download"></a>
   <a href="https://discord.gg/BjsubWefm4"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
@@ -27,6 +27,8 @@
 ## Features
 
 - **Up to 4 players** in one world: a host and up to three guests.
+- **Co-op chat (T)** — type in the Forager console and press Enter to send to your group. Slash commands stay local. Install the chat companion below on every PC.
+- **Trade phone (F3)** — select a partner and offer a backpack stack in the overworld. Both players review and confirm the exchange. [Controls and trade tests](docs/coop/TRADE.md)
 - **Steam invites** — the host presses **F2** in the world and invites friends; no IP addresses or VPN needed.
   LAN, Hamachi and Radmin work too.
 - **A COOP button in the main menu** — create a world or join one from a list of servers on your network.
@@ -50,14 +52,15 @@
   On any other build the DLL does nothing.
 - Windows.
 - Only **Classic** worlds can be played in co-op.
-- Forager's own Mod API mods are not supported.
+- The included ForagerCoopChat companion uses the Mod API. Other Mod API mods are untested.
 
 ## Installation
 
-1. Download `version.dll` from the [latest release](https://github.com/melogo5/forager-coop/releases/latest).
+1. Download `version.dll` from the [latest release](https://github.com/neotokyo1/forager-coop/releases/latest).
 2. Put it in the game folder, next to `Forager.exe`
    (Steam → Forager → Manage → Browse local files).
-3. Every player has to do this.
+3. For chat, extract the release asset `ForagerCoopChat.zip` into `%LOCALAPPDATA%\Forager\mods\`. The resulting folder should contain `ForagerCoopChat\Main.gml` and `fmConfig.json`.
+4. In **MODDING**, enable **ForagerCoopChat** and select **COMPILE**. Use the same DLL and companion on each PC.
 
 A **COOP** button appears in the main menu. To uninstall, delete `version.dll` from the game folder.
 

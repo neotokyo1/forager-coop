@@ -6,6 +6,12 @@ GitHub release, and the same text goes into the Steam Workshop changenote (see `
 Write it for players: what they can do now and what works that did not, not which commits or PRs did it.
 One line per change; group related fixes into one line.
 
+## 0.1.7
+
+- Press T, type in the Forager console and press Enter to chat with the group. Install and enable the bundled ForagerCoopChat companion on each PC.
+- Press F3 in the shared overworld to offer backpack items and review a trade with another player.
+- Use the same DLL (protocol 24) on the host and guests.
+
 ## v0.1.6
 
 All players need v0.1.6: it does not play with v0.1.5.

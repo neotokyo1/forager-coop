@@ -12,6 +12,7 @@
 #include "MinHook.h"
 #include "familiars.h"
 #include "gui.h"
+#include "trade.h"
 #include "log.h"
 
 namespace coop::puppet {
@@ -258,7 +259,7 @@ yyc::RValue* __cdecl PlayerFindHook(yyc::CInstance* self, yyc::CInstance* other,
 
 void __cdecl StepHook(yyc::CInstance* self, yyc::CInstance* other) {
     if (IsPuppetInstance(self)) return;
-    if (!g_holdLocal) g_origStep(self, other);
+    if (!trade::Input(self) && !g_holdLocal) g_origStep(self, other);
     if (g_onLocalStep == nullptr) return;
     __try {
         g_onLocalStep(self);

@@ -23,6 +23,7 @@ void SetGuestName(const std::string& name);
 // Host: the name guest `peer` introduced itself with ("guest" if it has not yet). Kept after the guest leaves:
 // its last upload may still be in the inbox.
 std::string HostGuestName(net::PeerId peer);
+bool Introduced(net::PeerId peer);
 
 // Host: <save area>/saveData<current slot>/coop_guests/<name><extension>, for more of the guest's data.
 std::wstring GuestDataFile(const std::string& name, const char* extension);

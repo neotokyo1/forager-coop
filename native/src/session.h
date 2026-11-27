@@ -2,6 +2,10 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
+#include <vector>
+
+namespace yyc { struct CInstance; }
 
 namespace coop {
 
@@ -32,6 +36,9 @@ bool PlayedWorld();
 // A message for the COOP screen about how the last session ended (empty if none); taken once.
 std::string TakeNotice();
 
+std::vector<std::pair<uint8_t, std::string>> TradePartners();
+bool GameMenuOpen(yyc::CInstance* player);
+void RejoinAfterTrade(yyc::CInstance* player);
 Role CurrentRole();
 bool IsConnected();
 

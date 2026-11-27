@@ -1,4 +1,5 @@
 #include "skilltab.h"
+#include "trade.h"
 
 #include <windows.h>
 
@@ -296,6 +297,7 @@ void DrawOpenTree(yyc::CInstance* control) {
 void __cdecl WorldGuiEndHook(yyc::CInstance* self, yyc::CInstance* other) {
     yyc::CInstance* control = g_open ? yyc::FindInstance(g_control) : nullptr;
     if (control != nullptr) DrawOpenTree(control);
+    trade::Draw(self);
     g_origWorldGuiEnd(self, other);
 }
 

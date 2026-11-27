@@ -1,4 +1,5 @@
 #include "world.h"
+#include "trade_capture.h"
 
 #include <windows.h>
 
@@ -346,7 +347,7 @@ yyc::RValue* __cdecl HerbProcessHook(yyc::CInstance* self, yyc::CInstance* other
     return g_origHerbProcess(self, other, result, argc, args);
 }
 
-yyc::RValue* __cdecl SaveGameHook(yyc::CInstance* self, yyc::CInstance* other, yyc::RValue* result, int argc,
+yyc::RValue* SaveCurrentGame(yyc::CInstance* self, yyc::CInstance* other, yyc::RValue* result, int argc,
                                   yyc::RValue** args) {
     PrepareSaveLists(self);
     // Inside an interior built in the world room, the save must not keep it (or the player past the world's edge).
@@ -355,6 +356,16 @@ yyc::RValue* __cdecl SaveGameHook(yyc::CInstance* self, yyc::CInstance* other, y
     yyc::RValue* r = Save(self, other, result, argc, args);
     interiors::AfterSave();
     return r;
+}
+
+yyc::RValue* __cdecl SaveGameHook(yyc::CInstance* self, yyc::CInstance* other, yyc::RValue* result, int argc,
+                                  yyc::RValue** args) {
+    trade::EnterSave();
+    __try {
+        return SaveCurrentGame(self, other, result, argc, args);
+    } __finally {
+        trade::LeaveSave();
+    }
 }
 
 // Closes the file being written; one that did not get all its bytes counts as broken.
