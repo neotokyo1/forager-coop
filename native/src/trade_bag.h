@@ -4,7 +4,7 @@
 #include "yyc.h"
 
 namespace coop::trade {
-std::vector<Stack> Bag(yyc::CInstance* player);
+std::vector<Stack> Bag(yyc::CInstance* player, bool diagnose = false);
 void ReleaseScratch();
 bool CanExchange(yyc::CInstance* player, const Offer& give, const Offer& receive);
 // Captures the game's own post-exchange Data.cin in a newly reserved working slot.

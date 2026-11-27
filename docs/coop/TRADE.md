@@ -2,11 +2,11 @@
 
 ## Im Spiel
 
-Host und Gäste brauchen denselben Build (Protokoll 24). In der gemeinsamen Oberwelt öffnet F3 das Handy. Mit den Pfeiltasten hoch/runter wird die Zeile gewählt, mit links/rechts der Partner, der Rucksackstapel oder die Menge. Die linke und rechte Hälfte einer Zeile funktionieren als Maustastenflächen. Enter oder der Aktionsknopf sendet das Angebot. Die Auswahl startet beim ganzen Stapel. Die rechte Mengentaste wechselt von dort auf ein Stück.
+Host und Gäste brauchen denselben Build (Protokoll 25). In der gemeinsamen Oberwelt öffnet F3 das Handy. Mit den Pfeiltasten hoch/runter wird die Zeile gewählt, mit links/rechts der Partner, der Rucksackstapel oder die Menge. Die linke und rechte Hälfte einer Zeile funktionieren als Maustastenflächen. Enter oder der Aktionsknopf sendet das Angebot. Die Auswahl startet beim ganzen Stapel. Die rechte Mengentaste wechselt von dort auf ein Stück.
 
 Der Empfänger erhält einen Hinweis, öffnet F3 und bietet seinen Stapel an. Beide sehen ihren eigenen Stapel und den Gegenwert vor der Bestätigung. Fachnummern beginnen bei eins, die Itemnummer ist die interne Spiel-ID. F3, Escape und das Kreuz brechen einen offenen Handel ab. Nach beiden Bestätigungen entscheidet der Host. Während dieser kurzen Entscheidung kann die Darstellung anhalten.
 
-Pro Sitzung verhandelt ein Paar gleichzeitig. Ein Angebot verfällt nach 90 Sekunden. Coins gehören der ganzen Sitzung. Vaults und Ausrüstung werden durch diesen Tausch nicht belastet. Handelbar sind belegte, einfache Inventareinträge mit zwei ganzzahligen Feldern für Item und Menge. Unbekannte Eintragsformate bleiben erhalten. Ein kompletter Stapel kann seinen Platz für einen neuen Typ freigeben. Für Teilmengen muss der Zugang in einen bestehenden Stapel, ein erkanntes Leerfach oder einen nachweislich erweiterbaren Rucksack passen. Ein gleichartiges Gegenangebot und unklare Platzverhältnisse werden abgewiesen.
+Pro Sitzung verhandelt ein Paar gleichzeitig. Ein Angebot verfällt nach 90 Sekunden. Coins gehören der ganzen Sitzung. Vaults und Ausrüstung werden durch diesen Tausch nicht belastet. Handelbar sind belegte, einfache Inventareinträge mit Item, Menge und bis zu acht weiteren ganzzahligen Attributen. Unbekannte Eintragsformate bleiben erhalten. Ein kompletter Stapel kann seinen Platz für einen neuen Typ freigeben. Für Teilmengen muss der Zugang in einen bestehenden Stapel, ein erkanntes Leerfach oder einen nachweislich erweiterbaren Rucksack passen. Ein gleichartiges Gegenangebot und unklare Platzverhältnisse werden abgewiesen.
 
 ## Ablauf und Wiederherstellung
 

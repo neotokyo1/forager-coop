@@ -56,7 +56,7 @@ struct Decision {
     uint32_t id;
     uint32_t commit;
 };
-static_assert(sizeof(Request) == 24 && sizeof(View) == 40);
+static_assert(sizeof(Request) == 60 && sizeof(View) == 112);
 
 struct Pair {
     uint32_t id = 0;
@@ -89,7 +89,7 @@ bool Present(Peer peer) {
 }
 bool Same(const Offer& a, const Offer& b) {
     return a.stack.slot == b.stack.slot && a.stack.item == b.stack.item && a.stack.count == b.stack.count &&
-           a.amount == b.amount;
+           a.stack.SameAttributes(b.stack) && a.amount == b.amount;
 }
 
 void ClearView(std::string message) {
@@ -391,7 +391,7 @@ bool Input(yyc::CInstance* p) {
     }
     auto roster = session::TradePartners();
     if (roster.empty() && !view.id && !submitted) status = "Kein Partner verfuegbar";
-    auto stacks = Bag(p);
+    auto stacks = Bag(p, toggle);
     auto l = Phone();
     int direction = int(gui::KeyPressed(VK_RIGHT)) - int(gui::KeyPressed(VK_LEFT));
     focus = Wrap(focus + int(gui::KeyPressed(VK_DOWN)) - int(gui::KeyPressed(VK_UP)), 4);
@@ -468,8 +468,11 @@ void Draw(yyc::CInstance* p) {
         int top = 50 + i * 40;
         gui::Fill(l.Box(12, top, 284, top + 36), surface);
         if (focus == i) gui::Frame(l.Box(12, top, 284, top + 36), mint);
-        text(19, top + 18, rows[i], gui::kWhite, 0.85);
-        if (i < 3 && !submitted && !(view.id && i == 0)) text(250, top + 18, "< >", mint, 0.8);
+        text(i < 3 ? 37 : 19, top + 18, rows[i], gui::kWhite, 0.85);
+        if (i < 3 && !submitted && !(view.id && i == 0)) {
+            text(18, top + 18, "<", mint, 0.8);
+            text(269, top + 18, ">", mint, 0.8);
+        }
     }
     text(16, 227, "Erhalt   " + Item(view.receive), gui::kWhite, 0.85);
     text(16, 254, status, mint, 0.85);

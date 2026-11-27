@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 
 #include "files.h"
@@ -29,31 +30,71 @@ int Length(yyc::CInstance* p, yyc::RValue& v) {
     return result;
 }
 
-BagLayout Inspect(yyc::CInstance* p, int id, yyc::RValue& inventory) {
+int Dimension(yyc::CInstance* p, yyc::RValue& array, int row = -1) {
+    if ((array.kind & yyc::kKindMask) != yyc::kArray) return -1;
+    yyc::RValue args[] = {array, yyc::Real(row)}, result{};
+    const bool ok =
+        yyc::CallBuiltin(row < 0 ? "array_height_2d" : "array_length_2d", p, row < 0 ? 1 : 2, args, &result);
+    int size = ok ? Integer(result, kMaxSlots) : -1;
+    yyc::Free(&result);
+    return size;
+}
+
+struct InventoryRows {
+    bool matrix = false;
+    int count = -1;
+};
+InventoryRows Shape(yyc::CInstance* p, yyc::RValue& inventory) {
+    int height = Dimension(p, inventory);
+    if (height > 1) return {true, height};
+    int n = Length(p, inventory);
+    // A single physical row can also be a single [item, amount] pair.
+    if (height == 1 && n >= 2 && yyc::IsNumber(yyc::ArrayElement(&inventory, 0)) &&
+        yyc::IsNumber(yyc::ArrayElement(&inventory, 1)))
+        return {true, 1};
+    return {false, n};
+}
+BagLayout Inspect(yyc::CInstance* p, int id, yyc::RValue& inventory, InventoryRows shape) {
     BagLayout bag;
     yyc::RValue capacity{};
     yyc::GetVar(id, kCapacity, &capacity);
     bag.capacity = Integer(capacity, kMaxSlots);
     yyc::Free(&capacity);
-    const int physicalLength = Length(p, inventory);
-    if (physicalLength < 0 || bag.capacity < 0) return {};
-    bag.length = (std::min)(physicalLength, bag.capacity);
+    if (shape.count < 0 || bag.capacity < 0) return {};
+    bag.length = (std::min)(shape.count, bag.capacity);
     for (int i = 0; i < bag.length; ++i) {
-        auto row = yyc::ArrayElement(&inventory, i);
-        if (Length(p, row) != 2) continue;
-        const auto item = yyc::ArrayElement(&row, 0);
-        int count = Integer(yyc::ArrayElement(&row, 1), kMaxCount);
+        auto row = shape.matrix ? inventory : yyc::ArrayElement(&inventory, i);
+        int width = shape.matrix ? Dimension(p, inventory, i) : Length(p, row);
+        Stack stack;
+        if (width < 2 || width > 2 + static_cast<int>(stack.extra.size())) continue;
+        int offset = shape.matrix ? i * yyc::kArray2dStride : 0;
+        const auto item = yyc::ArrayElement(&row, offset);
+        int count = Integer(yyc::ArrayElement(&row, offset + 1), kMaxCount);
         int type = Integer(item, 65535);
-        if (type >= 0 && count > 0)
-            bag.stacks.push_back({i, type, count});
-        else if (yyc::IsNumber(item) && yyc::ToReal(item) < 0 && count == 0)
+        if (type >= 0 && count > 0) {
+            stack.slot = i;
+            stack.item = type;
+            stack.count = count;
+            stack.extraCount = width - 2;
+            bool supported = true;
+            for (int j = 0; j < stack.extraCount; ++j) {
+                auto cell = yyc::ArrayElement(&row, offset + 2 + j);
+                double value = yyc::ToReal(cell);
+                if (!yyc::IsNumber(cell) || !(value >= INT_MIN && value <= INT_MAX) || std::floor(value) != value) {
+                    supported = false;
+                    break;
+                }
+                stack.extra[j] = static_cast<int32_t>(value);
+            }
+            if (supported) bag.stacks.push_back(stack);
+        } else if (yyc::IsNumber(item) && yyc::ToReal(item) < 0 && count == 0)
             bag.empty = i;
     }
     return bag;
 }
 
-// The engine accessor grows arrays on out-of-bounds access. Only use it on
-// arrays we just allocated, with the verified length, and move owned RValues.
+// Move owned cells only into freshly allocated arrays. The YYC accessor grows
+// physical matrix rows when addressed with the GameMaker 2D stride.
 bool NewArray(yyc::CInstance* p, int n, yyc::RValue& out) {
     auto size = yyc::Real(n);
     return yyc::CallBuiltin("array_create", p, 1, &size, &out) && Length(p, out) == n;
@@ -69,21 +110,46 @@ bool MoveCell(yyc::RValue& array, int i, yyc::RValue& owned) {
 }
 bool MakeInventory(yyc::CInstance* p, int id, yyc::RValue& original, const Offer& give, const Offer& receive,
                    yyc::RValue& after) {
-    const auto bag = Inspect(p, id, original);
+    const auto shape = Shape(p, original);
+    const auto bag = Inspect(p, id, original, shape);
     const auto changes = Plan(bag, give, receive);
     if (changes.write.empty()) return false;
     // Keep preallocated but locked slots byte-for-byte, outside the selectable range.
-    const int physicalLength = Length(p, original) - bag.length + changes.length;
-    if (!NewArray(p, physicalLength, after)) return false;
+    const int physicalLength = shape.count - bag.length + changes.length;
+    if (!NewArray(p, shape.matrix ? 0 : physicalLength, after)) return false;
     for (int i = 0; i < physicalLength; ++i) {
         int from = i + (changes.erase >= 0 && i >= changes.erase);
         auto replacement =
             std::find_if(changes.write.begin(), changes.write.end(), [from](Stack row) { return row.slot == from; });
+        if (shape.matrix) {
+            int source = from == changes.clear ? bag.empty : from;
+            int width =
+                replacement != changes.write.end() ? 2 + replacement->extraCount : Dimension(p, original, source);
+            if (width < 1) return false;
+            for (int col = 0; col < width; ++col) {
+                yyc::RValue cell{};
+                bool ok = true;
+                if (replacement != changes.write.end())
+                    cell = yyc::Real(col == 0   ? replacement->item
+                                     : col == 1 ? replacement->count
+                                                : replacement->extra[col - 2]);
+                else
+                    ok = yyc::GetVarAt(id, kInventory, source * yyc::kArray2dStride + col, &cell);
+                if (ok) ok = MoveCell(after, i * yyc::kArray2dStride + col, cell);
+                yyc::Free(&cell);
+                if (!ok) return false;
+            }
+            continue;
+        }
         yyc::RValue row{};
         bool ok;
         if (replacement != changes.write.end()) {
             auto item = yyc::Real(replacement->item), amount = yyc::Real(replacement->count);
-            ok = NewArray(p, 2, row) && MoveCell(row, 0, item) && MoveCell(row, 1, amount);
+            ok = NewArray(p, 2 + replacement->extraCount, row) && MoveCell(row, 0, item) && MoveCell(row, 1, amount);
+            for (int j = 0; ok && j < replacement->extraCount; ++j) {
+                auto value = yyc::Real(replacement->extra[j]);
+                ok = MoveCell(row, j + 2, value);
+            }
         } else {
             ok = yyc::GetVarAt(id, kInventory, from == changes.clear ? bag.empty : from, &row);
         }
@@ -153,11 +219,16 @@ void ReleaseScratch() {
     scratchLock = INVALID_HANDLE_VALUE;
     scratchNumber = -1;
 }
-std::vector<Stack> Bag(yyc::CInstance* p) {
+std::vector<Stack> Bag(yyc::CInstance* p, bool diagnose) {
     const int id = static_cast<int>(yyc::GetBuiltinReal(p, yyc::va::YYVar_id));
     yyc::RValue inventory{};
     yyc::GetVar(id, kInventory, &inventory);
-    auto bag = Inspect(p, id, inventory);
+    auto shape = Shape(p, inventory);
+    auto bag = Inspect(p, id, inventory, shape);
+    if (diagnose)
+        Log("trade: backpack layout=%s rows=%d capacity=%d firstWidth=%d selectable=%zu",
+        shape.matrix ? "matrix" : "nested", shape.count, bag.capacity,
+        shape.count < 1 ? -1 : (shape.matrix ? Dimension(p, inventory, 0) : [&] { auto row = yyc::ArrayElement(&inventory, 0); return Length(p, row); }()), bag.stacks.size());
     yyc::Free(&inventory);
     return bag.stacks;
 }
@@ -165,7 +236,7 @@ bool CanExchange(yyc::CInstance* p, const Offer& give, const Offer& receive) {
     const int id = static_cast<int>(yyc::GetBuiltinReal(p, yyc::va::YYVar_id));
     yyc::RValue before{};
     yyc::GetVar(id, kInventory, &before);
-    auto plan = Plan(Inspect(p, id, before), give, receive);
+    auto plan = Plan(Inspect(p, id, before, Shape(p, before)), give, receive);
     yyc::Free(&before);
     return !plan.write.empty();
 }

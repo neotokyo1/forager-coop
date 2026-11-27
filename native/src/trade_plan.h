@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -8,6 +9,15 @@ constexpr int kMaxSlots = 512;
 constexpr int kMaxCount = 1000000000;
 struct Stack {
     int32_t slot = -1, item = -1, count = 0;
+    int32_t extraCount = 0;
+    std::array<int32_t, 8> extra{};  // integral item attributes following the amount
+    bool SameAttributes(const Stack& other) const { return extraCount == other.extraCount && extra == other.extra; }
+    Stack At(int dest, int quantity) const {
+        Stack copy = *this;
+        copy.slot = dest;
+        copy.count = quantity;
+        return copy;
+    }
 };
 struct Offer {
     Stack stack;
@@ -15,7 +25,8 @@ struct Offer {
 };
 inline bool ValidOffer(const Offer& o) {
     return o.stack.slot >= 0 && o.stack.slot < kMaxSlots && o.stack.item >= 0 && o.stack.item <= 65535 &&
-           o.amount > 0 && o.amount <= o.stack.count && o.stack.count <= kMaxCount;
+           o.stack.extraCount >= 0 && o.stack.extraCount <= static_cast<int>(o.stack.extra.size()) && o.amount > 0 &&
+           o.amount <= o.stack.count && o.stack.count <= kMaxCount;
 }
 
 struct BagLayout {
@@ -35,8 +46,13 @@ inline Changes Plan(const BagLayout& bag, const Offer& give, const Offer& receiv
     const Stack* source = nullptr;
     const Stack* target = nullptr;
     for (const auto& row : bag.stacks) {
-        if (row.slot == give.stack.slot && row.item == give.stack.item && row.count == give.stack.count) source = &row;
-        if (row.item == receive.stack.item) target = &row;
+        if (row.slot == give.stack.slot && row.item == give.stack.item && row.count == give.stack.count &&
+            row.SameAttributes(give.stack))
+            source = &row;
+        if (row.item == receive.stack.item) {
+            if (!row.SameAttributes(receive.stack)) return {};
+            target = &row;
+        }
     }
     if (!source) return {};
     Changes result;
@@ -45,7 +61,7 @@ inline Changes Plan(const BagLayout& bag, const Offer& give, const Offer& receiv
     const bool compact =
         !bag.stacks.empty() && static_cast<int>(bag.stacks.size()) == bag.length && bag.length < bag.capacity;
     if (whole && !target) {
-        result.write.push_back({source->slot, receive.stack.item, receive.amount});
+        result.write.push_back(receive.stack.At(source->slot, receive.amount));
         return result;
     }
     if (whole) {
@@ -57,16 +73,16 @@ inline Changes Plan(const BagLayout& bag, const Offer& give, const Offer& receiv
         } else
             return {};
     } else {
-        result.write.push_back({source->slot, source->item, source->count - give.amount});
+        result.write.push_back(source->At(source->slot, source->count - give.amount));
     }
     if (target) {
         if (target->count > kMaxCount - receive.amount) return {};
-        result.write.push_back({target->slot, target->item, target->count + receive.amount});
+        result.write.push_back(target->At(target->slot, target->count + receive.amount));
     } else {
         int dest = bag.empty;
         if (dest < 0 && compact) dest = result.length++;
         if (dest < 0) return {};
-        result.write.push_back({dest, receive.stack.item, receive.amount});
+        result.write.push_back(receive.stack.At(dest, receive.amount));
     }
     return result;
 }

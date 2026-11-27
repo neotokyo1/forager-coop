@@ -68,7 +68,7 @@ namespace coop {
 
 namespace {
 
-constexpr uint32_t kProtocolVersion = 24;  // 24: console chat (119, 120); 23: two-party trades (115-118); 22: bonk and friendly fire (114), dancing in the state; 21: the Void together (places, seed, level state: 112, 113); 20: world puzzles, ice bolts, signs (105, 108-111), gem sockets no longer shared; 19: the player's aim (mouse) in its state; 18: floor/road tiles, structure variants, everyone's familiars; 17: puzzle pieces by the host's
+constexpr uint32_t kProtocolVersion = 25;  // 25: stack attributes in trade offers; 24: console chat (119, 120); 23: two-party trades (115-118); 22: bonk and friendly fire (114), dancing in the state; 21: the Void together (places, seed, level state: 112, 113); 20: world puzzles, ice bolts, signs (105, 108-111), gem sockets no longer shared; 19: the player's aim (mouse) in its state; 18: floor/road tiles, structure variants, everyone's familiars; 17: puzzle pieces by the host's
                                            // id and spot; 16: item unlocks; 15: a guest greets first (net.cpp); 14: the
                                            // tool swing
 constexpr uint32_t kYYVarImageBlend = 0x01AD8768;  // decompiled/code/yyvar_map.tsv

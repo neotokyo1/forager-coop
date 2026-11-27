@@ -6,6 +6,11 @@ GitHub release, and the same text goes into the Steam Workshop changenote (see `
 Write it for players: what they can do now and what works that did not, not which commits or PRs did it.
 One line per change; group related fixes into one line.
 
+## 0.1.8
+
+- The F3 trade phone recognizes matrix inventories and stacks with up to eight additional integer attributes. Trading preserves those attributes.
+- Install version.dll 0.1.8 on the host and all guests (protocol 25).
+
 ## 0.1.7
 
 - Press T, type in the Forager console and press Enter to chat with the group. Install and enable the bundled ForagerCoopChat companion on each PC.

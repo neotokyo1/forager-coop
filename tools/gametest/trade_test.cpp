@@ -89,6 +89,15 @@ void Inventory() {
                             for (Stack s : rows) totals[s.item] += s.count;
                             assert(totals[5] == count - amount && totals[7] == receive + (existing ? 3 : 0));
                         }
+    Stack wood{0, 5, 4}, stone{1, 7, 3};
+    wood.extraCount = stone.extraCount = 1;
+    wood.extra[0] = 13;
+    stone.extra[0] = -4;
+    BagLayout single{1, 1, -1, {wood}};
+    auto swap = Plan(single, {wood, 4}, {stone, 3});
+    assert(swap.write.size() == 1 && swap.write[0].SameAttributes(stone));
+    single.stacks[0].extra[0] = 14;
+    assert(Plan(single, {wood, 4}, {stone, 3}).write.empty());
     BagLayout bag{2, 2, -1, {{0, 5, 4}, {1, 7, kMaxCount}}};
     assert(Plan(bag, {{0, 5, 3}, 1}, {{0, 7, 4}, 1}).write.empty());  // quantity changed
     assert(Plan(bag, {{0, 7, 4}, 1}, {{0, 5, 4}, 1}).write.empty());  // slot reused
