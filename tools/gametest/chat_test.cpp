@@ -9,6 +9,7 @@
 using namespace coop;
 static std::map<std::string, std::string> globals;
 static std::vector<net::Message> sent, wire;
+static bool sendOk = true;
 static auto role = session::Role::kHost;
 namespace yyc {
 RValue String(const char* s) {
@@ -40,7 +41,7 @@ Role CurrentRole() { return role; }
 }  // namespace coop::session
 namespace coop::character {
 bool Introduced(net::PeerId p) { return p == 1 || p == 2; }
-std::string OwnName() { return "Host"; }
+std::string OwnName() { return role == session::Role::kHost ? "Host" : "Alex"; }
 std::string HostGuestName(net::PeerId) { return "Alex"; }
 }  // namespace coop::character
 namespace coop::net {
@@ -50,6 +51,7 @@ void SendExcept(PeerId p, uint8_t t, const void* b, size_t n) {
     sent.push_back({t, p, {a, a + n}});
 }
 bool SendTo(PeerId p, uint8_t t, const void* b, size_t n) {
+    if (!sendOk) return false;
     SendExcept(p, t, b, n);
     return true;
 }
@@ -66,6 +68,8 @@ int main() {
     globals["fc_chat_out_v1"] = " Grüß dich!\n/dance\n   /give";
     chat::Tick(nullptr, true);
     assert(sent.size() == 1);
+    assert(globals["fc_chat_in_v1"] == "Host:  Grüß dich!");
+    globals["fc_chat_in_v1"].clear();
     auto hostLine = sent.back();
     assert(hostLine.from == 0 && hostLine.type == 120);
     wire.push_back({119, 1, {'h', 'i'}});
@@ -83,6 +87,12 @@ int main() {
     globals["fc_chat_out_v1"] = "hey";
     chat::Tick(nullptr, true);
     assert(sent.size() == 3 && sent.back().type == 119);
+    assert(globals["fc_chat_in_v1"] == "Alex: hey");
+    globals["fc_chat_in_v1"].clear();
+    sendOk = false;
+    globals["fc_chat_out_v1"] = "unsent";
+    chat::Tick(nullptr, true);
+    assert(globals["fc_chat_in_v1"].empty());
     chat::Handle({120, 2, {1, 'A', 'x'}}, false);
     chat::Handle({120, 0, {30, 'x'}}, false);
     wire.push_back(hostLine);

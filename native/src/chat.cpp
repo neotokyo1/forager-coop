@@ -46,9 +46,9 @@ void Broadcast(net::PeerId from, const std::string& words) {
     std::string line(1, static_cast<char>(name.size()));
     line += name;
     line += words;
-    // The sender already sees its own entry in the vanilla console.
+    // Guests display their own outgoing line locally when SendTo succeeds.
     net::SendExcept(from, kLine, line.data(), line.size());
-    if (from) Display(name, words);
+    Display(name, words);
 }
 
 std::string Read(yyc::CInstance* player, const char* key) {
@@ -115,8 +115,8 @@ void Tick(yyc::CInstance* player, bool connected) {
             if (Valid(words)) {
                 if (host)
                     Broadcast(0, words);
-                else
-                    net::SendTo(0, kSubmit, words.data(), words.size());
+                else if (net::SendTo(0, kSubmit, words.data(), words.size()))
+                    Display(character::OwnName(), words);
             }
             if (end == batch.npos) break;
             start = end + 1;

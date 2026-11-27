@@ -6,6 +6,10 @@ GitHub release, and the same text goes into the Steam Workshop changenote (see `
 Write it for players: what they can do now and what works that did not, not which commits or PRs did it.
 One line per change; group related fixes into one line.
 
+## 0.1.9
+
+- The host and guests now see their own outgoing co-op messages with their player name in the T console.
+
 ## 0.1.8
 
 - The F3 trade phone recognizes matrix inventories and stacks with up to eight additional integer attributes. Trading preserves those attributes.
